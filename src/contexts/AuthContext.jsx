@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../services/firebase';
-import React from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
 
@@ -8,28 +8,27 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      setCurrentUser(user);
-      setLoading(false);
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      setCurrentUser(user); // Sets the user if logged in
+      if (user) {
+        navigate('/'); // Redirect to home page after login
+      } else {
+        navigate('/login'); // Redirect to login page if not logged in
+      }
     });
-    return unsubscribe;
-  }, []);
 
-  const value = {
-    currentUser,
-    login: (email, password) => auth.signInWithEmailAndPassword(email, password),
-    signup: (email, password) => auth.createUserWithEmailAndPassword(email, password),
-    logout: () => auth.signOut()
-  };
+    return unsubscribe; // Clean up the listener on unmount
+  }, [navigate]);
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider value={{ currentUser }}>
+      {children}
     </AuthContext.Provider>
   );
-}
+};
